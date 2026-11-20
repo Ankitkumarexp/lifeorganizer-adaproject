@@ -1,0 +1,126 @@
+package com.lifeorganizer;
+
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
+import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.jdbc.core.JdbcTemplate;
+import jakarta.servlet.http.Cookie;
+import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.test.web.servlet.MvcResult;
+
+import static org.springframework.http.MediaType.APPLICATION_JSON;
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
+
+@SpringBootTest(properties = {
+    "spring.datasource.url=jdbc:h2:mem:lifeorganizer-auth;MODE=MySQL;DATABASE_TO_LOWER=TRUE;DB_CLOSE_DELAY=-1",
+    "spring.datasource.driver-class-name=org.h2.Driver",
+    "spring.datasource.username=sa",
+    "spring.datasource.password=",
+    "spring.sql.init.mode=never"
+})
+@AutoConfigureMockMvc
+class WebAuthenticationTest {
+    private static final String PASSWORD = "correct horse battery staple";
+
+    @Autowired
+    private MockMvc mockMvc;
+
+    @Autowired
+    private JdbcTemplate jdbc;
+
+    @BeforeEach
+    void createTestSchema() {
+        jdbc.execute("DROP TABLE IF EXISTS groceries");
+        jdbc.execute("DROP TABLE IF EXISTS users");
+        jdbc.execute("""
+            CREATE TABLE users (
+                user_id INT AUTO_INCREMENT PRIMARY KEY,
+                name VARCHAR(100) NOT NULL,
+                email VARCHAR(190) NOT NULL UNIQUE,
+                password_hash VARCHAR(255) NOT NULL,
+                created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+            )
+            """);
+        jdbc.execute("""
+            CREATE TABLE groceries (
+                grocery_id INT AUTO_INCREMENT PRIMARY KEY,
+                user_id INT NOT NULL,
+                item_name VARCHAR(120) NOT NULL,
+                category VARCHAR(80) NOT NULL,
+                quantity VARCHAR(50) NOT NULL,
+                purchased_status VARCHAR(20) NOT NULL
+            )
+            """);
+    }
+
+    @Test
+    void apiRequiresAnAuthenticatedAccount() throws Exception {
+        mockMvc.perform(get("/api/records/groceries"))
+            .andExpect(status().isUnauthorized());
+    }
+
+    @Test
+    void accountCreationRequiresCsrfProtection() throws Exception {
+        mockMvc.perform(post("/api/auth/register")
+                .contentType(APPLICATION_JSON)
+                .content("""
+                    {"name":"Alice","email":"alice@example.test","password":"correct horse battery staple"}
+                    """))
+            .andExpect(status().isForbidden());
+    }
+
+    @Test
+    void accountsCanOnlyReadTheirOwnRecords() throws Exception {
+        register("Alice", "alice@example.test");
+        register("Bob", "bob@example.test");
+        jdbc.update("INSERT INTO groceries(user_id,item_name,category,quantity,purchased_status) VALUES(?,?,?,?,?)",
+            userId("alice@example.test"), "Alice's list", "Home", "1", "Pending");
+        jdbc.update("INSERT INTO groceries(user_id,item_name,category,quantity,purchased_status) VALUES(?,?,?,?,?)",
+            userId("bob@example.test"), "Bob's list", "Home", "1", "Pending");
+
+        Cookie alice = login("alice@example.test");
+        mockMvc.perform(get("/api/records/groceries").cookie(alice))
+            .andExpect(status().isOk())
+            .andExpect(content().json("""
+                [{"item_name":"Alice's list","category":"Home","quantity":"1","purchased_status":"Pending"}]
+                """));
+
+        Cookie bob = login("bob@example.test");
+        mockMvc.perform(get("/api/records/groceries").cookie(bob))
+            .andExpect(status().isOk())
+            .andExpect(content().json("""
+                [{"item_name":"Bob's list","category":"Home","quantity":"1","purchased_status":"Pending"}]
+                """));
+    }
+
+    private void register(String name, String email) throws Exception {
+        String body = """
+            {"name":"%s","email":"%s","password":"%s"}
+            """.formatted(name, email, PASSWORD);
+        mockMvc.perform(post("/api/auth/register")
+                .with(csrf())
+                .contentType(APPLICATION_JSON)
+                .content(body))
+            .andExpect(status().isCreated());
+    }
+
+    private Cookie login(String email) throws Exception {
+        MvcResult result = mockMvc.perform(post("/api/auth/login")
+                .with(csrf())
+                .param("email", email)
+                .param("password", PASSWORD))
+            .andExpect(status().isOk())
+            .andReturn();
+        return result.getResponse().getCookie("SESSION");
+    }
+
+    private int userId(String email) {
+        return jdbc.queryForObject("SELECT user_id FROM users WHERE email=?", Integer.class, email);
+    }
+}

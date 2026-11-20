@@ -1,0 +1,60 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#17324d">
+  <title>Life Organizer</title>
+  <link rel="stylesheet" href="/app.css">
+</head>
+<body>
+  <main id="auth-screen" class="auth-screen" hidden>
+    <section class="auth-card">
+      <a class="brand auth-brand" href="#"><span class="brand-mark">L</span><span>Life Organizer<small>PERSONAL WORKSPACE</small></span></a>
+      <p class="eyebrow">YOUR DAY, ORGANIZED</p>
+      <h1 id="auth-title">Sign in</h1>
+      <p id="auth-description" class="muted">Sign in to open your private workspace.</p>
+      <div id="auth-message" class="auth-message" role="alert" aria-live="polite"></div>
+      <form id="auth-form">
+        <label id="auth-name-field" class="field" hidden for="auth-name">Name
+          <input class="input" id="auth-name" name="name" autocomplete="name" maxlength="100">
+        </label>
+        <label class="field" for="auth-email">Email
+          <input class="input" id="auth-email" name="email" type="email" autocomplete="email" maxlength="190" required>
+        </label>
+        <label class="field" for="auth-password">Password
+          <input class="input" id="auth-password" name="password" type="password" autocomplete="current-password" minlength="12" maxlength="128" required>
+        </label>
+        <button id="auth-submit" class="button primary" type="submit">Sign in</button>
+      </form>
+      <p class="auth-switch"><span id="auth-switch-text">New here?</span>
+        <button id="auth-toggle" class="text-link" type="button">Create an account</button>
+      </p>
+    </section>
+  </main>
+  <div id="app-shell" class="app-shell" hidden>
+    <aside class="sidebar">
+      <a class="brand" href="#" data-view="dashboard"><span class="brand-mark">L</span><span>Life Organizer<small>PERSONAL WORKSPACE</small></span></a>
+      <div class="nav-caption">WORKSPACE</div>
+      <nav id="navigation" aria-label="Main navigation"></nav>
+      <div class="sidebar-note">Private workspace<br><span>Your records belong to your account.</span></div>
+    </aside>
+    <main class="main-area">
+      <header class="topbar">
+        <div><p class="eyebrow">YOUR DAY, ORGANIZED</p><h1 id="page-title">Overview</h1></div>
+        <div class="topbar-right"><span id="today-label"></span><span class="user-chip"><i></i><span id="user-name">Account</span></span><button id="logout" class="button secondary small-button" type="button">Sign out</button></div>
+      </header>
+      <div id="notice" class="notice" role="status" aria-live="polite"></div>
+      <section id="content" class="content" aria-live="polite"></section>
+    </main>
+  </div>
+  <dialog id="record-dialog" class="modal">
+    <form id="record-form" method="dialog">
+      <div class="modal-heading"><div><p class="eyebrow">LIFE ORGANIZER</p><h2 id="record-dialog-title">Add record</h2></div><button class="icon-button" value="cancel" aria-label="Close">×</button></div>
+      <div id="record-fields" class="form-grid"></div>
+      <div class="modal-actions"><button class="button secondary" value="cancel">Cancel</button><button class="button primary" id="record-save" value="save">Save record</button></div>
+    </form>
+  </dialog>
+  <script src="/app.js" defer></script>
+</body>
+</html>
